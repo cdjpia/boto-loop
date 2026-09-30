@@ -1,14 +1,15 @@
-// Widget publicado (widget.html): o boto num iframe responsivo, fundo transparente,
-// arrastar pra girar e um painel curto de personalizacao. Reaproveita a malha, o
-// chapeado, os LEDs e o composer do editor; nada de export nem de lil-gui aqui.
+// Widget publicado (widget.html): o boto numa caixa de proporcao fixa (16:9 deitado,
+// 3:5 em pe), palco de um lado e controles do outro - os controles nunca passam por
+// cima do boto. Reaproveita a malha, o chapeado, os LEDs e o composer do editor;
+// nada de export nem de lil-gui aqui.
 //
 // Parametros de URL, pra configurar pelo Embed do Framer:
-//   ?lang=en|pt   idioma (default: o do navegador)
-//   ?ui=0         esconde o botao do painel
-//   ?hint=0       esconde a dica "arraste pra girar"
-//   ?spin=0       comeca parado
+//   ?bg=transparent|black|white   fundo da caixa (default transparent)
+//   ?ui=0         esconde os controles (o palco ocupa a caixa toda)
+//   ?hint=0       esconde a animacao "drag to rotate"
+//   ?spin=1       comeca girando (default: parado)
 //   ?speed=24     graus por segundo
-//   ?color=DF378B cor do corpo (hex, sem #)
+//   ?color=DF378B cor do corpo, uma das amostras (hex, sem #)
 //   ?lights=00CFFF cor unica pros LEDs (sem o parametro: cores originais)
 //   ?glow=0.45    forca do bloom
 
@@ -25,61 +26,53 @@ const DEG = THREE.MathUtils.degToRad;
 const $ = (s) => document.querySelector(s);
 const url = new URLSearchParams(location.search);
 
-// ---------------------------------------------------------------- textos
+// ---------------------------------------------------------------- opcoes
 
-const TEXTOS = {
-  en: {
-    titulo: 'Customize', corpo: 'Body', luzes: 'Lights', brilho: 'Glow',
-    girar: 'Auto-spin', velocidade: 'Speed', restaurar: 'Reset',
-    dica: 'Drag to rotate', abrir: 'Customize', fechar: 'Close',
-    canvas: '3D boto. Drag or use the arrow keys to rotate.',
-    original: 'Original colors', livre: 'Custom color', erro: 'Could not load the 3D model.',
-  },
-  pt: {
-    titulo: 'Personalizar', corpo: 'Corpo', luzes: 'Luzes', brilho: 'Brilho',
-    girar: 'Girar sozinho', velocidade: 'Velocidade', restaurar: 'Restaurar',
-    dica: 'Arraste para girar', abrir: 'Personalizar', fechar: 'Fechar',
-    canvas: 'Boto 3D. Arraste ou use as setas para girar.',
-    original: 'Cores originais', livre: 'Cor livre', erro: 'Não foi possível carregar o modelo 3D.',
-  },
-};
-
-const lerLocal = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-const gravarLocal = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem storage */ } };
-
-let idioma = url.get('lang') || lerLocal('boto-lang')
-  || ((navigator.language || 'en').toLowerCase().startsWith('pt') ? 'pt' : 'en');
-if (!TEXTOS[idioma]) idioma = 'en';
-const t = (k) => TEXTOS[idioma][k];
+const CORES_CORPO = [
+  ['#DF378B', 'Magenta'], ['#7B3FE4', 'Purple'], ['#1F7BFF', 'Blue'], ['#12B886', 'Green'],
+  ['#F2A900', 'Gold'], ['#E23D28', 'Red'], ['#C9CDD2', 'Silver'],
+];
+const CORES_LUZES = [
+  [null, 'Original'], ['#00CFFF', 'Cyan'], ['#FF3B0F', 'Red'], ['#FFA51E', 'Amber'],
+  ['#B6FF3B', 'Lime'], ['#FF4FD8', 'Pink'], ['#FFFFFF', 'White'],
+];
+const FUNDOS = [
+  ['transparente', 'Transparent', 'xadrez'], ['preto', 'Black', '#000000'], ['branco', 'White', '#FFFFFF'],
+];
+const FUNDO_URL = { transparent: 'transparente', black: 'preto', white: 'branco' };
 
 // ---------------------------------------------------------------- estado
 
-// O widget nao pulsa como o loop exportado: com o usuario arrastando, o tamanho
-// constante (compensacao alta) le melhor. Preenchimento abaixo de 1 deixa espaco
-// pro halo do bloom nao bater na borda do iframe.
 const reduzMovimento = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const hex = (v) => (v && /^[0-9a-f]{6}$/i.test(v) ? `#${v.toUpperCase()}` : null);
 const num = (v, min, max) => {
   const n = parseFloat(v);
   return Number.isFinite(n) ? THREE.MathUtils.clamp(n, min, max) : null;
 };
+const daLista = (v, lista) => (lista.some(([c]) => c === v) ? v : null);
 
 const CORES_LED_ORIGINAIS = Object.fromEntries(Object.entries(LEDS).map(([k, v]) => [k, v.cor]));
 
 const PADRAO = {
-  cor: hex(url.get('color')) ?? P.cor,
-  luzes: hex(url.get('lights')) ?? null, // null = cores originais de cada grupo
+  cor: daLista(hex(url.get('color')), CORES_CORPO) ?? P.cor,
+  luzes: daLista(hex(url.get('lights')), CORES_LUZES), // null = cores originais de cada grupo
   brilho: num(url.get('glow'), 0, 1.5) ?? P.bloomForca,
-  girando: url.get('spin') === '0' ? false : !reduzMovimento,
+  girando: url.get('spin') === '1' && !reduzMovimento,
   velocidade: num(url.get('speed'), 4, 120) ?? P.velocidade,
+  fundo: FUNDO_URL[url.get('bg')] ?? 'transparente',
 };
 const estado = { ...PADRAO };
 
-Object.assign(P, { compensacao: 0.8, preenchimento: 0.82 });
+// Preenchimento abaixo de 1 deixa espaco pro halo do bloom nao bater na borda do palco.
+Object.assign(P, { preenchimento: 0.9 });
 
 // ---------------------------------------------------------------- renderer
 
+const caixa = $('#caixa');
+const palco = $('#palco');
 const canvas = $('#view');
+if (url.get('ui') === '0') caixa.classList.add('sem-ui');
+
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
 renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -106,10 +99,13 @@ let pontosFit = null;
 
 // ---------------------------------------------------------------- tamanho
 
+// O canvas acompanha o palco, nao a janela: a caixa muda de proporcao (16:9 / 3:5)
+// e os controles comem uma parte dela.
 let largura = 0, altura = 0;
 
 function redimensionar() {
-  const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+  const w = Math.max(1, Math.round(palco.clientWidth));
+  const h = Math.max(1, Math.round(palco.clientHeight));
   if (w === largura && h === altura) return;
   largura = w; altura = h;
   // DPR ate 2: acima disso o bloom custa caro no celular e ninguem ve a diferenca.
@@ -119,25 +115,33 @@ function redimensionar() {
   composer.setPixelRatio(dpr);
   composer.setSize(w, h);
   camera.aspect = w / h;
-  sujo = true;
+  enquadrar();
 }
-window.addEventListener('resize', redimensionar);
+new ResizeObserver(redimensionar).observe(palco);
 
 // ---------------------------------------------------------------- enquadramento
 
-function atualizarCamera() {
+// Diferente do editor, aqui a camera NAO acompanha o giro: o boto tem o mesmo
+// tamanho o tempo todo. A distancia e a do pior caso da volta inteira (o perfil,
+// mais largo), entao nenhum angulo sangra pra fora do palco. So muda quando o
+// palco muda de tamanho.
+let distancia = null;
+
+function enquadrar() {
   if (!pontosFit) return;
-  // Frame de qualquer proporcao: o fit testa largura e altura separadas, entao o
-  // boto cabe tanto num Embed largo (desktop) quanto num alto (celular).
   const tanV = Math.tan(DEG(P.fov) / 2);
   const tanH = tanV * camera.aspect;
   const pitch = -DEG(P.bicoUp), yaw = DEG(P.yaw), roll = DEG(P.roll);
-  const dFixo = fitDistance(pontosFit, poseMatrix(0, pitch, yaw, roll), tanH, tanV, P.preenchimento);
-  const dDin = fitDistance(pontosFit, poseMatrix(DEG(P.spin), pitch, yaw, roll), tanH, tanV, P.preenchimento);
+  distancia = 0;
+  for (let a = 0; a < 360; a += 5) {
+    const d = fitDistance(pontosFit, poseMatrix(DEG(a), pitch, yaw, roll), tanH, tanV, P.preenchimento);
+    if (d > distancia) distancia = d;
+  }
   camera.fov = P.fov;
-  camera.position.set(0, 0, THREE.MathUtils.lerp(dFixo, dDin, P.compensacao));
+  camera.position.set(0, 0, distancia);
   camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
+  sujo = true;
 }
 
 // ---------------------------------------------------------------- aparencia
@@ -155,6 +159,9 @@ function aplicarLuzes() {
 }
 
 function aplicarBrilho() { bloom.strength = estado.brilho; }
+
+// fundo e CSS na caixa, atras do canvas transparente - o render nao muda
+function aplicarFundo() { caixa.dataset.fundo = estado.fundo; }
 
 // ---------------------------------------------------------------- giro e arrasto
 
@@ -207,15 +214,39 @@ canvas.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') P.spin += passo;
   else return;
   e.preventDefault();
+  esconderDica();
   sujo = true;
 });
 
+// ---------------------------------------------------------------- dica
+
+// A animacao toca na primeira vez que o widget aparece na tela - numa pagina do
+// Framer ele costuma carregar la embaixo, fora da vista, e a dica se perderia.
+const dica = $('#dica');
+let dicaFeita = url.get('hint') === '0';
+let dicaTimer = 0;
+
+function mostrarDica() {
+  if (dicaFeita || !modelo) return;
+  dicaFeita = true;
+  dica.classList.add('visivel');
+  dicaTimer = setTimeout(esconderDica, 3300); // duas passadas de 1.5s + folga
+}
+function esconderDica() {
+  dicaFeita = true;
+  clearTimeout(dicaTimer);
+  dica.classList.remove('visivel');
+}
+
 // ---------------------------------------------------------------- loop
 
-// So renderiza quando o iframe esta na tela: numa pagina do Framer o widget passa
-// a maior parte do tempo fora da vista. Aba escondida o proprio rAF ja pausa.
+// So renderiza quando o widget esta na tela: numa pagina do Framer ele passa a
+// maior parte do tempo fora da vista. Aba escondida o proprio rAF ja pausa.
 let naTela = true;
-new IntersectionObserver(([en]) => { naTela = en.isIntersecting; }).observe(canvas);
+new IntersectionObserver(([en]) => {
+  naTela = en.isIntersecting;
+  if (naTela) mostrarDica();
+}, { threshold: 0.4 }).observe(palco);
 
 let anterior = performance.now();
 
@@ -235,7 +266,6 @@ function loop(agora) {
 
   P.spin = ((P.spin % 360) + 360) % 360;
   spinGroup.rotation.y = DEG(P.spin);
-  atualizarCamera();
   composer.render();
 }
 
@@ -270,86 +300,48 @@ new GLTFLoader().load(new URL('../boto_low.glb', import.meta.url).href, (gltf) =
   aplicarLuzes();
   aplicarBrilho();
   pontosFit = pontosDeEnquadramento(pontosCorpo, leds.root);
+  enquadrar();
 
   vel = alvo();
   sujo = true;
   requestAnimationFrame((ts) => { anterior = ts; loop(ts); });
   canvas.classList.add('pronto');
-  mostrarDica();
+  if (naTela) setTimeout(mostrarDica, 500);
 }, undefined, (err) => {
   console.error(err);
   const d = document.createElement('div');
   d.className = 'erro';
-  d.textContent = t('erro');
-  document.body.append(d);
+  d.textContent = 'Could not load the 3D model.';
+  palco.append(d);
 });
 
-// ---------------------------------------------------------------- dica
+// ---------------------------------------------------------------- controles
 
-let dicaTimer = 0;
-function mostrarDica() {
-  if (url.get('hint') === '0') return;
-  $('#dica').classList.add('visivel');
-  dicaTimer = setTimeout(esconderDica, 3500);
-}
-function esconderDica() {
-  clearTimeout(dicaTimer);
-  $('#dica').classList.remove('visivel');
-}
-
-// ---------------------------------------------------------------- painel
-
-const CORES_CORPO = ['#DF378B', '#7B3FE4', '#1F7BFF', '#12B886', '#F2A900', '#E23D28', '#C9CDD2'];
-const CORES_LUZES = [null, '#00CFFF', '#FF3B0F', '#FFA51E', '#B6FF3B', '#FF4FD8', '#FFFFFF'];
-
-function montarAmostras(el, cores, chave, aplicar) {
-  const botoes = cores.map((c) => {
+function montarAmostras(el, opcoes, chave, aplicar) {
+  const botoes = opcoes.map(([valor, nome, visual]) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'amostra' + (c === null ? ' original' : '');
-    if (c) b.style.setProperty('--c', c);
-    b.dataset.cor = c ?? '';
-    b.addEventListener('click', () => { estado[chave] = c; aplicar(); marcar(); sujo = true; });
+    b.className = 'amostra';
+    const cor = visual ?? valor;
+    if (cor === null) b.classList.add('original');
+    else if (cor === 'xadrez') b.classList.add('xadrez');
+    else b.style.setProperty('--c', cor);
+    b.setAttribute('aria-label', nome);
+    b.title = nome;
+    b.addEventListener('click', () => {
+      estado[chave] = valor; aplicar(); sincronizarControles(); sujo = true;
+    });
     el.append(b);
-    return b;
+    return [valor, b];
   });
-
-  // cor livre: input nativo escondido dentro de um circulo arco-iris
-  const livre = document.createElement('label');
-  livre.className = 'amostra livre';
-  const input = document.createElement('input');
-  input.type = 'color';
-  input.addEventListener('input', () => {
-    estado[chave] = input.value.toUpperCase(); aplicar(); marcar(); sujo = true;
-  });
-  livre.append(input);
-  el.append(livre);
-
-  function marcar() {
-    const atual = estado[chave] ?? '';
-    let achou = false;
-    for (const b of botoes) {
-      const sim = b.dataset.cor.toUpperCase() === atual.toUpperCase();
-      b.setAttribute('aria-pressed', String(sim));
-      achou ||= sim;
-    }
-    // cor livre escolhida: o circulo arco-iris vira a propria cor e ganha o anel
-    livre.classList.toggle('marcada', !achou && !!atual);
-    livre.style.background = !achou && atual ? atual : '';
-    input.value = atual || '#ffffff';
-  }
-
-  function rotular() {
-    for (const b of botoes) b.setAttribute('aria-label', b.dataset.cor || t('original'));
-    livre.setAttribute('aria-label', t('livre'));
-    input.setAttribute('aria-label', t('livre'));
-  }
-
-  return { marcar, rotular };
+  return () => {
+    for (const [valor, b] of botoes) b.setAttribute('aria-pressed', String(valor === estado[chave]));
+  };
 }
 
-const amCorpo = montarAmostras($('#amostras-corpo'), CORES_CORPO, 'cor', aplicarCorpo);
-const amLuzes = montarAmostras($('#amostras-luzes'), CORES_LUZES, 'luzes', aplicarLuzes);
+const marcarCorpo = montarAmostras($('#amostras-corpo'), CORES_CORPO, 'cor', aplicarCorpo);
+const marcarLuzes = montarAmostras($('#amostras-luzes'), CORES_LUZES, 'luzes', aplicarLuzes);
+const marcarFundo = montarAmostras($('#amostras-fundo'), FUNDOS, 'fundo', aplicarFundo);
 
 const brilho = $('#brilho'), velocidade = $('#velocidade'), girar = $('#girar');
 
@@ -359,18 +351,20 @@ function pintarTrilho(r) {
 }
 
 function sincronizarControles() {
-  amCorpo.marcar();
-  amLuzes.marcar();
+  marcarCorpo();
+  marcarLuzes();
+  marcarFundo();
   brilho.value = estado.brilho;
   $('#brilho-v').textContent = `${Math.round((estado.brilho / 1.5) * 100)}%`;
   velocidade.value = estado.velocidade;
   $('#velocidade-v').textContent = `${Math.round(estado.velocidade)}°/s`;
   // velocidade so existe com o giro ligado: fora disso fica indisponivel, nao some
   velocidade.disabled = !estado.girando;
-  $('label[for="velocidade"]').classList.toggle('off', !estado.girando);
+  $('#r-giro').classList.toggle('off', !estado.girando);
+  girar.setAttribute('aria-checked', String(estado.girando));
+  $('#fundo-v').textContent = FUNDOS.find(([v]) => v === estado.fundo)[1];
   // restaurar indisponivel enquanto nada mudou
   $('#restaurar').disabled = Object.keys(PADRAO).every((k) => estado[k] === PADRAO[k]);
-  girar.setAttribute('aria-checked', String(estado.girando));
   pintarTrilho(brilho);
   pintarTrilho(velocidade);
 }
@@ -386,40 +380,10 @@ girar.addEventListener('click', () => {
 });
 $('#restaurar').addEventListener('click', () => {
   Object.assign(estado, PADRAO);
-  aplicarCorpo(); aplicarLuzes(); aplicarBrilho();
+  aplicarCorpo(); aplicarLuzes(); aplicarBrilho(); aplicarFundo();
   sincronizarControles();
   sujo = true;
 });
 
-function traduzir() {
-  document.documentElement.lang = idioma === 'pt' ? 'pt-BR' : 'en';
-  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
-  document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === idioma)));
-  $('#abrir').setAttribute('aria-label', t('abrir'));
-  $('#fechar').setAttribute('aria-label', t('fechar'));
-  canvas.setAttribute('aria-label', t('canvas'));
-  amCorpo.rotular();
-  amLuzes.rotular();
-}
-
-document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
-  idioma = b.dataset.lang;
-  gravarLocal('boto-lang', idioma);
-  traduzir();
-}));
-
-function abrirPainel(abrir) {
-  document.body.classList.toggle('painel-aberto', abrir);
-  $('#abrir').setAttribute('aria-expanded', String(abrir));
-  if (abrir) { esconderDica(); $('#fechar').focus(); } else $('#abrir').focus();
-}
-$('#abrir').addEventListener('click', () => abrirPainel(true));
-$('#fechar').addEventListener('click', () => abrirPainel(false));
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.body.classList.contains('painel-aberto')) abrirPainel(false);
-});
-
-if (url.get('ui') === '0') { $('#abrir').hidden = true; $('#painel').hidden = true; }
-
-traduzir();
+aplicarFundo();
 sincronizarControles();

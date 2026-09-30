@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Boto Loop</title>
 <meta name="description" content="Interactive 3D boto-aparelhagem. Drag to rotate, tweak colors and glow.">
-<!-- Versao publicada: three vem do CDN, sem node_modules. Mesma versao do package.json. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap">
+<!-- Versao publicada: three vem do CDN, sem node_modules. Mesma versao do package.json. -->
 <script type="importmap">
 {
   "imports": {
@@ -18,13 +18,13 @@
 }
 </script>
 <style>
-  /* Fundo SEMPRE transparente: o widget vive dentro de um iframe (Embed do Framer)
-     e o que aparece atras e a pagina. Nada de color-scheme aqui - se o iframe
-     declarar um esquema diferente do da pagina, o navegador pinta um fundo opaco.
+  /* O iframe em si e sempre transparente: o que aparece em volta da caixa e a
+     pagina do Framer. Nada de color-scheme aqui - se o iframe declarar um esquema
+     diferente do da pagina, o navegador pinta um fundo opaco.
 
      UI kit: pilulas macias, sem sombra nenhuma. Os estados se separam por
      preenchimento e contorno, nao por profundidade:
-       selecionado      gradiente rosa, texto/knob branco
+       selecionado      gradiente rosa, texto/knob branco, anel rosa nas amostras
        disponivel       superficie blush, texto rosa apagado, hover escurece
        indisponivel     cinza-rosado chapado, contraste baixo, cursor not-allowed */
   :root {
@@ -35,7 +35,6 @@
     --pink-400: #e87ba8;
     --pink-500: #e35a92;
     --pink-600: #cc4079;
-    --pink-700: #a3305f;
     --ink:      #4a2a3a;
     --ink-dim:  #a5798d;
     --off-bg:   #f2ecef;
@@ -45,7 +44,8 @@
     --surface:  #fffafc;
     --grad:     linear-gradient(135deg, #ee7dab 0%, var(--pink-500) 55%, var(--pink-600) 100%);
     --radius:   22px;
-    --gap:      12px;
+    --pad:      12px;
+    --sw:       24px;   /* diametro das amostras */
   }
   * { box-sizing: border-box; }
   html, body {
@@ -56,10 +56,44 @@
     color: var(--ink);
     -webkit-tap-highlight-color: transparent;
   }
+  body { display: grid; place-items: center; }
   button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--pink-600); outline-offset: 2px; }
 
+  /* ---------------------------------------------------------------- caixa
+     Proporcao fixa, encaixada (contain) no iframe: 16:9 em frame deitado (desktop,
+     tablet), 3:5 em frame em pe (celular). Se o Embed do Framer nao tiver
+     exatamente essa proporcao, sobra margem transparente e a caixa fica no centro. */
+  #caixa {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: min(100vw, calc(100vh * 16 / 9));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 25%, 300px);
+    gap: var(--pad);
+    padding: var(--pad);
+    border-radius: var(--radius);
+    transition: background-color .25s ease;
+  }
+  @media (max-aspect-ratio: 1 / 1) {
+    #caixa {
+      aspect-ratio: 3 / 5;
+      width: min(100vw, calc(100vh * 3 / 5));
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+  }
+  #caixa[data-fundo="preto"]  { background: #000; }
+  #caixa[data-fundo="branco"] { background: #fff; }
+  #caixa.sem-ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  #caixa.sem-ui #controles { display: none; }
+
+  /* ---------------------------------------------------------------- palco
+     O canvas mora so aqui dentro: o boto e enquadrado nesta area e nunca passa
+     por baixo dos controles. */
+  #palco { position: relative; min-width: 0; min-height: 0; }
   #view {
-    position: fixed; inset: 0;
+    position: absolute; inset: 0;
     width: 100%; height: 100%;
     display: block;
     cursor: grab;
@@ -68,156 +102,137 @@
     opacity: 0;
     transition: opacity .6s ease;
     outline: none;
+    border-radius: calc(var(--radius) - 6px);
   }
   #view.pronto { opacity: 1; }
   #view.arrastando { cursor: grabbing; }
   #view:focus-visible { box-shadow: inset 0 0 0 2px var(--pink-500); }
 
-  /* superficie clara solida: legivel em cima de qualquer fundo da pagina */
-  .surface {
-    background: var(--surface);
-    border: 1px solid var(--pink-100);
-  }
-
-  :focus-visible { outline: 2px solid var(--pink-600); outline-offset: 2px; }
-
-  /* ---------------------------------------------------------------- dica */
+  /* ---------------------------------------------------------------- dica
+     Mao que arrasta pra um lado e pro outro, com as setas acendendo no sentido do
+     gesto. Toca duas vezes quando o widget entra na tela e some no primeiro toque. */
   #dica {
-    position: fixed; left: 50%; bottom: calc(var(--gap) + env(safe-area-inset-bottom));
-    transform: translate(-50%, 8px);
-    padding: 8px 16px 8px 13px;
-    border-radius: 999px;
-    display: flex; align-items: center; gap: 8px;
-    color: var(--pink-600);
-    font-size: 12px; font-weight: 600;
-    white-space: nowrap;
+    position: absolute; left: 50%; top: 58%;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
     pointer-events: none;
     opacity: 0;
-    transition: opacity .4s ease, transform .4s ease;
+    transition: opacity .35s ease;
   }
-  #dica.visivel { opacity: 1; transform: translate(-50%, 0); }
-  #dica svg { width: 16px; height: 16px; }
-
-  /* ---------------------------------------------------------------- botao */
-  #abrir {
-    position: fixed;
-    right: calc(var(--gap) + env(safe-area-inset-right));
-    bottom: calc(var(--gap) + env(safe-area-inset-bottom));
-    width: 46px; height: 46px;
-    border-radius: 50%;
+  #dica.visivel { opacity: 1; }
+  #dica .gesto { position: relative; width: 132px; height: 56px; }
+  #dica .seta {
+    position: absolute; top: 12px; width: 22px; height: 22px;
+    color: var(--pink-500); opacity: .25;
+  }
+  #dica .seta.esq { left: 0; }
+  #dica .seta.dir { right: 0; }
+  #dica .mao {
+    position: absolute; left: 50%; top: 0;
+    width: 44px; height: 44px; margin-left: -22px;
     display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--surface); border: 1.5px solid var(--pink-500);
     color: var(--pink-500);
-    cursor: pointer;
-    padding: 0;
-    transition: transform .2s ease, opacity .2s ease, background .2s ease;
   }
-  #abrir:hover { background: var(--pink-50); transform: scale(1.05); }
-  #abrir svg { width: 20px; height: 20px; }
-  body.painel-aberto #abrir { opacity: 0; pointer-events: none; transform: scale(.8); }
+  #dica .mao svg { width: 24px; height: 24px; }
+  #dica .rastro {
+    position: absolute; left: 22px; right: 22px; top: 21px; height: 2px;
+    background: repeating-linear-gradient(to right, var(--pink-300) 0 4px, transparent 4px 9px);
+    opacity: .7;
+  }
+  #dica.visivel .mao  { animation: arrasto 1.5s cubic-bezier(.45, 0, .55, 1) 2; }
+  #dica.visivel .esq  { animation: seta-esq 1.5s ease-in-out 2; }
+  #dica.visivel .dir  { animation: seta-dir 1.5s ease-in-out 2; }
+  @keyframes arrasto {
+    0%, 100% { transform: translateX(0) scale(1); }
+    10%      { transform: translateX(0) scale(.9); }     /* aperta */
+    35%      { transform: translateX(-38px) scale(.9); }
+    65%      { transform: translateX(38px) scale(.9); }
+    90%      { transform: translateX(0) scale(.9); }
+  }
+  @keyframes seta-esq { 0%, 100% { opacity: .25; } 35% { opacity: 1; } 65% { opacity: .25; } }
+  @keyframes seta-dir { 0%, 35%, 100% { opacity: .25; } 65% { opacity: 1; } }
+  #dica .texto {
+    padding: 5px 12px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--pink-100);
+    color: var(--pink-600); font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
 
-  /* ---------------------------------------------------------------- painel */
-  #painel {
-    position: fixed;
-    right: calc(var(--gap) + env(safe-area-inset-right));
-    bottom: calc(var(--gap) + env(safe-area-inset-bottom));
-    width: 292px;
-    max-height: calc(100% - 2 * var(--gap));
+  /* ---------------------------------------------------------------- controles
+     Sempre visiveis, na coluna/faixa propria - nunca por cima do boto. */
+  #controles {
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: var(--radius);
-    padding: 16px 18px 18px;
-    transform-origin: bottom right;
-    transform: scale(.92) translateY(8px);
-    opacity: 0;
-    visibility: hidden;
-    transition: transform .22s ease, opacity .22s ease, visibility 0s linear .22s;
+    background: var(--surface);
+    border: 1px solid var(--pink-100);
+    border-radius: calc(var(--radius) - 4px);
+    padding: 16px;
+    display: grid;
+    align-content: center;
+    gap: 16px;
+    grid-template-areas: "corpo" "luzes" "brilho" "giro" "fundo" "restaurar";
   }
-  body.painel-aberto #painel {
-    transform: none; opacity: 1; visibility: visible;
-    transition: transform .22s ease, opacity .22s ease;
-  }
-  /* frame estreito (celular, ou Embed pequeno): vira folha de baixo, largura toda */
-  @media (max-width: 440px) {
-    #painel {
-      left: calc(var(--gap) + env(safe-area-inset-left));
-      width: auto;
-      transform-origin: bottom center;
+  /* em pe: duas colunas, pra caber embaixo do palco sem roubar altura do boto */
+  @media (max-aspect-ratio: 1 / 1) {
+    #controles {
+      padding: 14px;
+      gap: 12px 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        "corpo corpo"
+        "luzes luzes"
+        "brilho giro"
+        "fundo restaurar";
+      align-items: end;
     }
   }
+  .s-corpo { grid-area: corpo; }
+  .s-luzes { grid-area: luzes; }
+  .s-brilho { grid-area: brilho; }
+  .s-giro { grid-area: giro; }
+  .s-fundo { grid-area: fundo; }
+  .restaurar { grid-area: restaurar; }
 
-  .topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-  .topo h2 { font-size: 15px; font-weight: 700; margin: 0; color: var(--ink); }
-  .topo .acoes { display: flex; align-items: center; gap: 6px; }
-
-  /* segmentado: o selecionado e a pilula cheia, o outro fica disponivel e apagado */
-  .idioma {
-    display: flex; gap: 2px; padding: 3px;
-    background: var(--pink-50); border: 1px solid var(--pink-100); border-radius: 999px;
-  }
-  .idioma button {
-    background: none; border: 0; border-radius: 999px;
-    color: var(--ink-dim);
-    font-size: 11px; font-weight: 700;
-    padding: 4px 10px; cursor: pointer;
-    transition: background .15s ease, color .15s ease;
-  }
-  .idioma button:hover { color: var(--pink-600); }
-  .idioma button[aria-pressed="true"] { background: var(--grad); color: #fff; }
-
-  .icone {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: var(--pink-50); border: 1px solid var(--pink-100); color: var(--pink-400);
-    display: grid; place-items: center; cursor: pointer; padding: 0;
-  }
-  .icone:hover { color: var(--pink-600); background: var(--pink-100); }
-  .icone svg { width: 14px; height: 14px; }
-
-  .secao { margin-top: 16px; }
   .rotulo {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    min-height: 22px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
     color: var(--ink-dim);
-    margin-bottom: 9px;
+    margin-bottom: 6px;
   }
   .rotulo output {
     font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none;
     font-weight: 700; color: var(--pink-500);
   }
-  .rotulo.off, .rotulo.off output { color: var(--off-ink); }
+  .rotulo.off output { color: var(--off-ink); }
 
   /* amostras: disponivel = circulo com contorno fino; selecionada = anel rosa com
      folga branca, igual ao radio do kit */
-  .amostras { display: flex; flex-wrap: wrap; gap: 9px; }
+  .amostras { display: flex; flex-wrap: wrap; gap: 7px; padding: 3px; margin: -3px; }
   .amostra {
     position: relative;
-    width: 30px; height: 30px; border-radius: 50%;
-    border: 0; padding: 0; cursor: pointer;
+    width: var(--sw); height: var(--sw); border-radius: 50%;
+    border: 0; padding: 0; cursor: pointer; flex: none;
     background: var(--c);
-    box-shadow: inset 0 0 0 1px rgba(74, 42, 58, .12);
+    box-shadow: inset 0 0 0 1px rgba(74, 42, 58, .14);
     transition: transform .15s ease, box-shadow .15s ease;
   }
-  .amostra:hover { transform: scale(1.08); }
-  .amostra[aria-pressed="true"], .amostra.marcada {
-    box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--pink-500);
+  .amostra:hover { transform: scale(1.1); }
+  .amostra[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--pink-500);
   }
-  .amostra.original {
-    background: conic-gradient(#ff8a1e, #ff3b0f, #00cfff, #ffa51e, #ff8a1e);
-  }
-  /* cor livre: o input nativo fica invisivel por cima do circulo */
-  .amostra.livre {
-    background: conic-gradient(#ff5a5a, #ffd23f, #3fe08a, #3fc8ff, #6a5aff, #ff5ac8, #ff5a5a);
-    overflow: hidden;
-  }
-  .amostra.livre input {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    opacity: 0; cursor: pointer; border: 0; padding: 0;
+  .amostra.original { background: conic-gradient(#ff8a1e, #ff3b0f, #00cfff, #ffa51e, #ff8a1e); }
+  .amostra.xadrez {
+    background: repeating-conic-gradient(#e4d9de 0 25%, #fff 0 50%) 50% / 10px 10px;
   }
 
-  /* slider: trilho em pilula blush, preenchido em gradiente, polegar branco com
+  /* slider: trilho em pilula blush, preenchido em rosa, polegar branco com
      contorno rosa. Indisponivel: tudo cinza-rosado chapado. */
   input[type="range"] {
-    -webkit-appearance: none; appearance: none;
-    width: 100%; height: 24px; background: transparent; margin: 0; cursor: pointer;
+    -webkit-appearance: none; appearance: none; display: block;
+    width: 100%; height: 22px; background: transparent; margin: 0; cursor: pointer;
     --fill: var(--pink-500); --track: var(--pink-100); --thumb-line: var(--pink-500);
   }
   input[type="range"]::-webkit-slider-runnable-track {
@@ -239,107 +254,109 @@
     cursor: not-allowed;
     --fill: var(--off-ink); --track: var(--off-bg); --thumb-line: var(--off-ink);
   }
-  input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
+  input[type="range"]:focus-visible { outline-offset: 3px; border-radius: 999px; }
 
   /* chave: desligada = trilho blush com knob rosa claro a esquerda;
      ligada = trilho em gradiente com knob branco a direita */
-  .linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .chave {
-    position: relative; width: 48px; height: 28px; flex: none;
+    position: relative; width: 40px; height: 22px; flex: none;
     border-radius: 999px; padding: 0; cursor: pointer;
     background: var(--pink-50); border: 1px solid var(--pink-100);
     transition: background .2s ease, border-color .2s ease;
   }
   .chave::after {
-    content: ""; position: absolute; top: 3px; left: 3px;
-    width: 20px; height: 20px; border-radius: 50%; background: var(--pink-300);
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%; background: var(--pink-300);
     transition: transform .2s ease, background .2s ease;
   }
   .chave:hover::after { background: var(--pink-400); }
   .chave[aria-checked="true"] { background: var(--grad); border-color: transparent; }
-  .chave[aria-checked="true"]::after { transform: translateX(20px); background: #fff; }
+  .chave[aria-checked="true"]::after { transform: translateX(18px); background: #fff; }
+  .giro-titulo { display: flex; align-items: center; gap: 8px; }
 
   /* botao secundario ("release" do kit): disponivel, nao selecionado */
   .restaurar {
-    margin-top: 18px; width: 100%;
+    width: 100%; height: 38px;
     background: var(--pink-50); color: var(--pink-400);
     border: 1px solid var(--pink-100); border-radius: 999px;
     font-weight: 700;
-    padding: 11px; cursor: pointer;
+    cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 7px;
     transition: background .15s ease, color .15s ease;
   }
-  .restaurar:hover { background: var(--grad); color: #fff; border-color: transparent; }
+  .restaurar:hover:not(:disabled) { background: var(--grad); color: #fff; border-color: transparent; }
   .restaurar:disabled {
     background: var(--off-bg); color: var(--off-ink); border-color: var(--off-line); cursor: not-allowed;
   }
   .restaurar svg { width: 14px; height: 14px; }
 
   .erro {
-    position: fixed; inset: 0; display: grid; place-items: center;
+    position: absolute; inset: 0; display: grid; place-items: center;
     text-align: center; padding: 24px; color: var(--ink-dim);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #view, #dica, #abrir, #painel, .amostra, .chave, .chave::after { transition: none; }
+    #view, #dica, #caixa, .amostra, .chave, .chave::after { transition: none; }
+    #dica.visivel .mao, #dica.visivel .esq, #dica.visivel .dir { animation: none; }
   }
 </style>
 </head>
 <body>
-  <canvas id="view" tabindex="0" role="img"></canvas>
+  <main id="caixa" data-fundo="transparente">
+    <div id="palco">
+      <canvas id="view" tabindex="0" role="img" aria-label="3D boto. Drag or use the arrow keys to rotate."></canvas>
 
-  <div id="dica" class="surface" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l-4 3 4 3M17 9l4 3-4 3M3 12h18"/></svg>
-    <span data-t="dica"></span>
-  </div>
-
-  <button id="abrir" class="surface" type="button" aria-controls="painel" aria-expanded="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
-  </button>
-
-  <section id="painel" class="surface" role="dialog" aria-labelledby="titulo-painel">
-    <div class="topo">
-      <h2 id="titulo-painel" data-t="titulo"></h2>
-      <div class="acoes">
-        <div class="idioma" role="group" aria-label="Language">
-          <button type="button" data-lang="en">EN</button>
-          <button type="button" data-lang="pt">PT</button>
+      <div id="dica" aria-hidden="true">
+        <div class="gesto">
+          <svg class="seta esq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <svg class="seta dir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          <div class="rastro"></div>
+          <div class="mao">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 10V9a1.5 1.5 0 0 1 3 0v2"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.8-2.4L4.3 15.5a1.5 1.5 0 0 1 2.3-1.9L9 16"/></svg>
+          </div>
         </div>
-        <button id="fechar" class="icone" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
+        <div class="texto">Drag to rotate</div>
       </div>
     </div>
 
-    <div class="secao">
-      <div class="rotulo" id="r-corpo" data-t="corpo"></div>
-      <div class="amostras" id="amostras-corpo" role="group" aria-labelledby="r-corpo"></div>
-    </div>
-
-    <div class="secao">
-      <div class="rotulo" id="r-luzes" data-t="luzes"></div>
-      <div class="amostras" id="amostras-luzes" role="group" aria-labelledby="r-luzes"></div>
-    </div>
-
-    <div class="secao">
-      <label class="rotulo" for="brilho"><span data-t="brilho"></span><output id="brilho-v"></output></label>
-      <input id="brilho" type="range" min="0" max="1.5" step="0.01">
-    </div>
-
-    <div class="secao">
-      <div class="linha rotulo" style="margin-bottom:4px">
-        <span id="r-girar" data-t="girar"></span>
-        <button id="girar" class="chave" type="button" role="switch" aria-labelledby="r-girar"></button>
+    <section id="controles" aria-label="Customize">
+      <div class="s-corpo">
+        <div class="rotulo" id="r-corpo">Body</div>
+        <div class="amostras" id="amostras-corpo" role="group" aria-labelledby="r-corpo"></div>
       </div>
-      <label class="rotulo" for="velocidade" style="margin-top:6px"><span data-t="velocidade"></span><output id="velocidade-v"></output></label>
-      <input id="velocidade" type="range" min="4" max="120" step="1">
-    </div>
 
-    <button id="restaurar" class="restaurar" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-      <span data-t="restaurar"></span>
-    </button>
-  </section>
+      <div class="s-luzes">
+        <div class="rotulo" id="r-luzes">Lights</div>
+        <div class="amostras" id="amostras-luzes" role="group" aria-labelledby="r-luzes"></div>
+      </div>
+
+      <div class="s-brilho">
+        <label class="rotulo" for="brilho"><span>Glow</span><output id="brilho-v"></output></label>
+        <input id="brilho" type="range" min="0" max="1.5" step="0.01">
+      </div>
+
+      <div class="s-giro">
+        <div class="rotulo" id="r-giro">
+          <span class="giro-titulo">
+            <span id="r-girar">Auto-spin</span>
+            <button id="girar" class="chave" type="button" role="switch" aria-labelledby="r-girar"></button>
+          </span>
+          <output id="velocidade-v"></output>
+        </div>
+        <input id="velocidade" type="range" min="4" max="120" step="1" aria-label="Spin speed">
+      </div>
+
+      <div class="s-fundo">
+        <div class="rotulo" id="r-fundo"><span>Background</span><output id="fundo-v"></output></div>
+        <div class="amostras" id="amostras-fundo" role="group" aria-labelledby="r-fundo"></div>
+      </div>
+
+      <button id="restaurar" class="restaurar" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+    </section>
+  </main>
 
   <script type="module" src="./src/widget.js"></script>
 </body>

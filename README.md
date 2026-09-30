@@ -10,28 +10,37 @@ Made by **Lucas Preginato** ([@cdjpia](https://github.com/cdjpia)). Code under t
 
 ## Widget (Framer)
 
-`widget.html` is the web version: transparent background, fills whatever frame it's
-placed in (desktop, tablet, phone), auto-spins, drag/swipe to rotate (vertical swipes
-still scroll the page), and a small panel for body color, light color, glow and spin
-speed. English/Portuguese, auto-detected.
+`widget.html` is the web version. It keeps a fixed shape and fits itself inside
+whatever frame it's placed in:
 
-In Framer: insert an **Embed**, choose **URL**, paste the live URL above, and size
-the frame however you like — the boto re-frames itself to fit.
+- **landscape frame** (desktop, tablet) → **16:9**, controls in a column on the right
+- **portrait frame** (phone) → **3:5**, controls below
+
+The controls are always visible and never cover the boto. The boto keeps the same
+size at every angle (framed once for its widest pose). Drag/swipe to rotate —
+vertical swipes still scroll the page — and an animated hand shows how the first
+time the widget scrolls into view. Controls: body color, light color, glow,
+auto-spin (off by default) + speed, background (transparent / black / white), reset.
+
+In Framer: insert an **Embed**, choose **URL**, paste the live URL above. Size it
+16:9 on desktop and tablet (e.g. 1200×675, 960×540) and 3:5 on phone (e.g. 360×600).
+Any other shape works too — the widget letterboxes itself, with the extra space
+transparent.
 
 Optional URL parameters:
 
 | parameter | example | effect |
 |---|---|---|
-| `lang` | `?lang=pt` | force language (`en` / `pt`) |
-| `ui` | `?ui=0` | hide the customize button |
-| `hint` | `?hint=0` | hide the "drag to rotate" hint |
-| `spin` | `?spin=0` | start without auto-spin |
+| `bg` | `?bg=black` | background: `transparent` (default), `black`, `white` |
+| `spin` | `?spin=1` | start with auto-spin on |
 | `speed` | `?speed=40` | spin speed, degrees/second |
-| `color` | `?color=7B3FE4` | body color (hex, no `#`) |
-| `lights` | `?lights=00CFFF` | one color for all LEDs |
+| `color` | `?color=7B3FE4` | body color — one of the swatches (hex, no `#`) |
+| `lights` | `?lights=00CFFF` | LED color — one of the swatches |
 | `glow` | `?glow=0.8` | bloom strength (0–1.5) |
+| `hint` | `?hint=0` | skip the drag animation |
+| `ui` | `?ui=0` | hide the controls (boto only) |
 
-Combine with `&`: `https://cdjpia.github.io/boto-loop/?lang=pt&hint=0`
+Combine with `&`: `https://cdjpia.github.io/boto-loop/?bg=white&spin=1`
 
 Local preview: `npm start` → http://localhost:5173/widget.html. Every push to `main`
 republishes the site through `.github/workflows/pages.yml`.
@@ -197,7 +206,7 @@ src/framing.js        cálculo de distância da câmera
 src/exporter.js       sequência PNG
 src/gui.js            lil-gui
 src/pipeline.js       environment, luzes e composer com alpha (editor + widget)
-src/widget.js         widget publicado: arrasto, painel, idioma
+src/widget.js         widget publicado: arrasto, controles, enquadramento fixo
 widget.html           página do widget (three pelo CDN)
 build.sh              ffmpeg
 ```
