@@ -9,8 +9,6 @@
 //   ?hint=0       esconde a animacao "drag to rotate"
 //   ?spin=1       comeca girando (default: parado)
 //   ?speed=24     graus por segundo
-//   ?color=DF378B cor do corpo, uma das amostras (hex, sem #)
-//   ?lights=00CFFF cor unica pros LEDs (sem o parametro: cores originais)
 //   ?glow=0.45    forca do bloom
 
 import * as THREE from 'three';
@@ -18,7 +16,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import { P, LEDS } from './params.js';
 import { paintPanels, bodyMaterial } from './materials.js';
-import { buildLeds, aplicarCor } from './leds.js';
+import { buildLeds } from './leds.js';
 import { fitDistance, poseMatrix } from './framing.js';
 import { criarAmbiente, criarComposer, amostrarDorso, pontosDeEnquadramento } from './pipeline.js';
 
@@ -28,14 +26,6 @@ const url = new URLSearchParams(location.search);
 
 // ---------------------------------------------------------------- opcoes
 
-const CORES_CORPO = [
-  ['#DF378B', 'Magenta'], ['#7B3FE4', 'Purple'], ['#1F7BFF', 'Blue'], ['#12B886', 'Green'],
-  ['#F2A900', 'Gold'], ['#E23D28', 'Red'], ['#C9CDD2', 'Silver'],
-];
-const CORES_LUZES = [
-  [null, 'Original'], ['#00CFFF', 'Cyan'], ['#FF3B0F', 'Red'], ['#FFA51E', 'Amber'],
-  ['#B6FF3B', 'Lime'], ['#FF4FD8', 'Pink'], ['#FFFFFF', 'White'],
-];
 const FUNDOS = [
   ['transparente', 'Transparent', 'xadrez'], ['preto', 'Black', '#000000'], ['branco', 'White', '#FFFFFF'],
 ];
@@ -44,19 +34,13 @@ const FUNDO_URL = { transparent: 'transparente', black: 'preto', white: 'branco'
 // ---------------------------------------------------------------- estado
 
 const reduzMovimento = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const hex = (v) => (v && /^[0-9a-f]{6}$/i.test(v) ? `#${v.toUpperCase()}` : null);
 const num = (v, min, max) => {
   const n = parseFloat(v);
   return Number.isFinite(n) ? THREE.MathUtils.clamp(n, min, max) : null;
 };
-const daLista = (v, lista) => (lista.some(([c]) => c === v) ? v : null);
-
-const CORES_LED_ORIGINAIS = Object.fromEntries(Object.entries(LEDS).map(([k, v]) => [k, v.cor]));
-
 const PADRAO = {
-  cor: daLista(hex(url.get('color')), CORES_CORPO) ?? P.cor,
-  luzes: daLista(hex(url.get('lights')), CORES_LUZES), // null = cores originais de cada grupo
-  brilho: num(url.get('glow'), 0, 1.5) ?? P.bloomForca,
+  // 27% no controle (0.405 de 1.5): um pouco abaixo do editor, o halo nao estoura na pagina
+  brilho: num(url.get('glow'), 0, 1.5) ?? 0.405,
   girando: url.get('spin') === '1' && !reduzMovimento,
   velocidade: num(url.get('speed'), 4, 120) ?? P.velocidade,
   fundo: FUNDO_URL[url.get('bg')] ?? 'transparente',
@@ -145,18 +129,6 @@ function enquadrar() {
 }
 
 // ---------------------------------------------------------------- aparencia
-
-function aplicarCorpo() {
-  P.cor = estado.cor;
-  if (modelo) paintPanels(modelo.geometry, P);
-}
-
-function aplicarLuzes() {
-  for (const nome of Object.keys(LEDS)) {
-    LEDS[nome].cor = estado.luzes ?? CORES_LED_ORIGINAIS[nome];
-    aplicarCor(leds.materiais[nome], LEDS[nome]);
-  }
-}
 
 function aplicarBrilho() { bloom.strength = estado.brilho; }
 
@@ -289,7 +261,6 @@ new GLTFLoader().load(new URL('../boto_low.glb', import.meta.url).href, (gltf) =
   geo = geo.toNonIndexed();
   geo.computeVertexNormals();
 
-  P.cor = estado.cor;
   paintPanels(geo, P);
   modelo = new THREE.Mesh(geo, bodyMaterial(P));
   tiltGroup.add(modelo);
@@ -297,7 +268,6 @@ new GLTFLoader().load(new URL('../boto_low.glb', import.meta.url).href, (gltf) =
 
   leds.perfilDorsal = amostrarDorso(geo);
   leds.sync(LEDS);
-  aplicarLuzes();
   aplicarBrilho();
   pontosFit = pontosDeEnquadramento(pontosCorpo, leds.root);
   enquadrar();
@@ -323,8 +293,7 @@ function montarAmostras(el, opcoes, chave, aplicar) {
     b.type = 'button';
     b.className = 'amostra';
     const cor = visual ?? valor;
-    if (cor === null) b.classList.add('original');
-    else if (cor === 'xadrez') b.classList.add('xadrez');
+    if (cor === 'xadrez') b.classList.add('xadrez');
     else b.style.setProperty('--c', cor);
     b.setAttribute('aria-label', nome);
     b.title = nome;
@@ -339,8 +308,6 @@ function montarAmostras(el, opcoes, chave, aplicar) {
   };
 }
 
-const marcarCorpo = montarAmostras($('#amostras-corpo'), CORES_CORPO, 'cor', aplicarCorpo);
-const marcarLuzes = montarAmostras($('#amostras-luzes'), CORES_LUZES, 'luzes', aplicarLuzes);
 const marcarFundo = montarAmostras($('#amostras-fundo'), FUNDOS, 'fundo', aplicarFundo);
 
 const brilho = $('#brilho'), velocidade = $('#velocidade'), girar = $('#girar');
@@ -351,8 +318,6 @@ function pintarTrilho(r) {
 }
 
 function sincronizarControles() {
-  marcarCorpo();
-  marcarLuzes();
   marcarFundo();
   brilho.value = estado.brilho;
   $('#brilho-v').textContent = `${Math.round((estado.brilho / 1.5) * 100)}%`;
@@ -363,8 +328,6 @@ function sincronizarControles() {
   $('#r-giro').classList.toggle('off', !estado.girando);
   girar.setAttribute('aria-checked', String(estado.girando));
   $('#fundo-v').textContent = FUNDOS.find(([v]) => v === estado.fundo)[1];
-  // restaurar indisponivel enquanto nada mudou
-  $('#restaurar').disabled = Object.keys(PADRAO).every((k) => estado[k] === PADRAO[k]);
   pintarTrilho(brilho);
   pintarTrilho(velocidade);
 }
@@ -377,12 +340,6 @@ velocidade.addEventListener('input', () => {
 });
 girar.addEventListener('click', () => {
   estado.girando = !estado.girando; sincronizarControles();
-});
-$('#restaurar').addEventListener('click', () => {
-  Object.assign(estado, PADRAO);
-  aplicarCorpo(); aplicarLuzes(); aplicarBrilho(); aplicarFundo();
-  sincronizarControles();
-  sujo = true;
 });
 
 aplicarFundo();

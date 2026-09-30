@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Boto Loop</title>
-<meta name="description" content="Interactive 3D boto-aparelhagem. Drag to rotate, tweak colors and glow.">
+<meta name="description" content="Interactive 3D boto-aparelhagem. Drag to rotate, tweak glow and background.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap">
@@ -160,8 +160,11 @@
   }
 
   /* ---------------------------------------------------------------- controles
-     Sempre visiveis, na coluna/faixa propria - nunca por cima do boto. */
+     Sempre visiveis, na coluna/faixa propria - nunca por cima do boto. O cartao
+     abraca o conteudo na vertical e fica centrado na coluna. */
   #controles {
+    align-self: center;
+    max-height: 100%;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -170,9 +173,8 @@
     border-radius: calc(var(--radius) - 4px);
     padding: 16px;
     display: grid;
-    align-content: center;
     gap: 16px;
-    grid-template-areas: "corpo" "luzes" "brilho" "giro" "fundo" "restaurar";
+    grid-template-areas: "brilho" "giro" "fundo";
   }
   /* em pe: duas colunas, pra caber embaixo do palco sem roubar altura do boto */
   @media (max-aspect-ratio: 1 / 1) {
@@ -181,19 +183,14 @@
       gap: 12px 16px;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       grid-template-areas:
-        "corpo corpo"
-        "luzes luzes"
-        "brilho giro"
-        "fundo restaurar";
+        "brilho fundo"
+        "giro giro";
       align-items: end;
     }
   }
-  .s-corpo { grid-area: corpo; }
-  .s-luzes { grid-area: luzes; }
   .s-brilho { grid-area: brilho; }
   .s-giro { grid-area: giro; }
   .s-fundo { grid-area: fundo; }
-  .restaurar { grid-area: restaurar; }
 
   .rotulo {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -201,6 +198,7 @@
     font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
     color: var(--ink-dim);
     margin-bottom: 6px;
+    white-space: nowrap;
   }
   .rotulo output {
     font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none;
@@ -223,7 +221,6 @@
   .amostra[aria-pressed="true"] {
     box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--pink-500);
   }
-  .amostra.original { background: conic-gradient(#ff8a1e, #ff3b0f, #00cfff, #ffa51e, #ff8a1e); }
   .amostra.xadrez {
     background: repeating-conic-gradient(#e4d9de 0 25%, #fff 0 50%) 50% / 10px 10px;
   }
@@ -274,22 +271,6 @@
   .chave[aria-checked="true"]::after { transform: translateX(18px); background: #fff; }
   .giro-titulo { display: flex; align-items: center; gap: 8px; }
 
-  /* botao secundario ("release" do kit): disponivel, nao selecionado */
-  .restaurar {
-    width: 100%; height: 38px;
-    background: var(--pink-50); color: var(--pink-400);
-    border: 1px solid var(--pink-100); border-radius: 999px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    transition: background .15s ease, color .15s ease;
-  }
-  .restaurar:hover:not(:disabled) { background: var(--grad); color: #fff; border-color: transparent; }
-  .restaurar:disabled {
-    background: var(--off-bg); color: var(--off-ink); border-color: var(--off-line); cursor: not-allowed;
-  }
-  .restaurar svg { width: 14px; height: 14px; }
-
   .erro {
     position: absolute; inset: 0; display: grid; place-items: center;
     text-align: center; padding: 24px; color: var(--ink-dim);
@@ -320,16 +301,6 @@
     </div>
 
     <section id="controles" aria-label="Customize">
-      <div class="s-corpo">
-        <div class="rotulo" id="r-corpo">Body</div>
-        <div class="amostras" id="amostras-corpo" role="group" aria-labelledby="r-corpo"></div>
-      </div>
-
-      <div class="s-luzes">
-        <div class="rotulo" id="r-luzes">Lights</div>
-        <div class="amostras" id="amostras-luzes" role="group" aria-labelledby="r-luzes"></div>
-      </div>
-
       <div class="s-brilho">
         <label class="rotulo" for="brilho"><span>Glow</span><output id="brilho-v"></output></label>
         <input id="brilho" type="range" min="0" max="1.5" step="0.01">
@@ -351,10 +322,6 @@
         <div class="amostras" id="amostras-fundo" role="group" aria-labelledby="r-fundo"></div>
       </div>
 
-      <button id="restaurar" class="restaurar" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-        Reset
-      </button>
     </section>
   </main>
 

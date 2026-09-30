@@ -19,8 +19,8 @@ whatever frame it's placed in:
 The controls are always visible and never cover the boto. The boto keeps the same
 size at every angle (framed once for its widest pose). Drag/swipe to rotate —
 vertical swipes still scroll the page — and an animated hand shows how the first
-time the widget scrolls into view. Controls: body color, light color, glow,
-auto-spin (off by default) + speed, background (transparent / black / white), reset.
+time the widget scrolls into view. Controls: glow (27% by default), auto-spin
+(off by default) + speed, background (transparent / black / white).
 
 In Framer: insert an **Embed**, choose **URL**, paste the live URL above. Size it
 16:9 on desktop and tablet (e.g. 1200×675, 960×540) and 3:5 on phone (e.g. 360×600).
@@ -34,8 +34,6 @@ Optional URL parameters:
 | `bg` | `?bg=black` | background: `transparent` (default), `black`, `white` |
 | `spin` | `?spin=1` | start with auto-spin on |
 | `speed` | `?speed=40` | spin speed, degrees/second |
-| `color` | `?color=7B3FE4` | body color — one of the swatches (hex, no `#`) |
-| `lights` | `?lights=00CFFF` | LED color — one of the swatches |
 | `glow` | `?glow=0.8` | bloom strength (0–1.5) |
 | `hint` | `?hint=0` | skip the drag animation |
 | `ui` | `?ui=0` | hide the controls (boto only) |
