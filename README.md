@@ -10,35 +10,34 @@ Made by **Lucas Preginato** ([@cdjpia](https://github.com/cdjpia)). Code under t
 
 ## Widget (Framer)
 
-`widget.html` is the web version. It keeps a fixed shape and fits itself inside
-whatever frame it's placed in:
+`widget.html` is the web version. It fills whatever frame it's placed in — no fixed
+ratio — with the boto always centered and the same size at every angle (framed for
+its full rotation sweep, so nothing ever leaves the frame).
 
-- **landscape frame** (desktop, tablet) → **16:9**, controls in a column on the right
-- **portrait frame** (phone) → **3:4**, controls below
+- **Rotate in any direction:** drag, scroll wheel / trackpad, or arrow keys. Auto-spin
+  is on by default; an animated hand shows how the first time the widget is seen.
+- **Adjustments** button (glow, auto-spin + speed, background: transparent / black /
+  white). The panel stays tucked in it; opened, it slides in on the right side on
+  landscape frames (desktop, tablet) and up from the bottom on portrait frames (phone).
 
-The controls are always visible and never cover the boto. The boto keeps the same
-size at every angle (framed once for its widest pose). Drag/swipe to rotate —
-vertical swipes still scroll the page — and an animated hand shows how the first
-time the widget scrolls into view. Controls: glow (27% by default), auto-spin
-(off by default) + speed, background (transparent / black / white).
+In Framer, insert an **Embed** (HTML) and paste:
 
-In Framer: insert an **Embed**, choose **URL**, paste the live URL above. Size it
-16:9 on desktop and tablet (e.g. 1200×675, 960×540) and 3:4 on phone (e.g. 360×480).
-Any other shape works too — the widget letterboxes itself, with the extra space
-transparent.
+```html
+<iframe src="https://cdjpia.github.io/boto-loop/" title="Boto Loop 3D" loading="lazy"
+  allowtransparency="true" style="width:100%;height:100%;border:0;display:block;background:transparent;"></iframe>
+```
 
-Optional URL parameters:
+Because dragging and scrolling rotate the boto, touches and wheel scrolls over the
+widget don't scroll the page.
 
 | parameter | example | effect |
 |---|---|---|
 | `bg` | `?bg=black` | background: `transparent` (default), `black`, `white` |
-| `spin` | `?spin=1` | start with auto-spin on |
+| `spin` | `?spin=0` | start without auto-spin |
 | `speed` | `?speed=40` | spin speed, degrees/second |
 | `glow` | `?glow=0.8` | bloom strength (0–1.5) |
-| `hint` | `?hint=0` | skip the drag animation |
-| `ui` | `?ui=0` | hide the controls (boto only) |
-
-Combine with `&`: `https://cdjpia.github.io/boto-loop/?bg=white&spin=1`
+| `hint` | `?hint=0` | skip the rotate animation |
+| `ui` | `?ui=0` | hide the Adjustments button |
 
 Local preview: `npm start` → http://localhost:5173/widget.html. Every push to `main`
 republishes the site through `.github/workflows/pages.yml`.
@@ -204,7 +203,7 @@ src/framing.js        cálculo de distância da câmera
 src/exporter.js       sequência PNG
 src/gui.js            lil-gui
 src/pipeline.js       environment, luzes e composer com alpha (editor + widget)
-src/widget.js         widget publicado: arrasto, controles, enquadramento fixo
+src/widget.js         widget publicado: giro livre, botao de ajustes, enquadramento fixo
 widget.html           página do widget (three pelo CDN)
 build.sh              ffmpeg
 ```
