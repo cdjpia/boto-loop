@@ -1,5 +1,5 @@
 // Widget publicado (widget.html): o boto numa caixa de proporcao fixa (16:9 deitado,
-// 3:5 em pe), palco de um lado e controles do outro - os controles nunca passam por
+// 3:4 em pe), palco de um lado e controles do outro - os controles nunca passam por
 // cima do boto. Reaproveita a malha, o chapeado, os LEDs e o composer do editor;
 // nada de export nem de lil-gui aqui.
 //
@@ -83,7 +83,7 @@ let pontosFit = null;
 
 // ---------------------------------------------------------------- tamanho
 
-// O canvas acompanha o palco, nao a janela: a caixa muda de proporcao (16:9 / 3:5)
+// O canvas acompanha o palco, nao a janela: a caixa muda de proporcao (16:9 / 3:4)
 // e os controles comem uma parte dela.
 let largura = 0, altura = 0;
 

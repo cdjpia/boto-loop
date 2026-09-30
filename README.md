@@ -14,7 +14,7 @@ Made by **Lucas Preginato** ([@cdjpia](https://github.com/cdjpia)). Code under t
 whatever frame it's placed in:
 
 - **landscape frame** (desktop, tablet) → **16:9**, controls in a column on the right
-- **portrait frame** (phone) → **3:5**, controls below
+- **portrait frame** (phone) → **3:4**, controls below
 
 The controls are always visible and never cover the boto. The boto keeps the same
 size at every angle (framed once for its widest pose). Drag/swipe to rotate —
@@ -23,7 +23,7 @@ time the widget scrolls into view. Controls: glow (27% by default), auto-spin
 (off by default) + speed, background (transparent / black / white).
 
 In Framer: insert an **Embed**, choose **URL**, paste the live URL above. Size it
-16:9 on desktop and tablet (e.g. 1200×675, 960×540) and 3:5 on phone (e.g. 360×600).
+16:9 on desktop and tablet (e.g. 1200×675, 960×540) and 3:4 on phone (e.g. 360×480).
 Any other shape works too — the widget letterboxes itself, with the extra space
 transparent.
 

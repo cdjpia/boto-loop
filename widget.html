@@ -43,7 +43,6 @@
 
     --surface:  #fffafc;
     --grad:     linear-gradient(135deg, #ee7dab 0%, var(--pink-500) 55%, var(--pink-600) 100%);
-    --radius:   22px;
     --pad:      12px;
     --sw:       24px;   /* diametro das amostras */
   }
@@ -62,7 +61,7 @@
 
   /* ---------------------------------------------------------------- caixa
      Proporcao fixa, encaixada (contain) no iframe: 16:9 em frame deitado (desktop,
-     tablet), 3:5 em frame em pe (celular). Se o Embed do Framer nao tiver
+     tablet), 3:4 em frame em pe (celular). Se o Embed do Framer nao tiver
      exatamente essa proporcao, sobra margem transparente e a caixa fica no centro. */
   #caixa {
     position: relative;
@@ -72,13 +71,12 @@
     grid-template-columns: minmax(0, 1fr) clamp(240px, 25%, 300px);
     gap: var(--pad);
     padding: var(--pad);
-    border-radius: var(--radius);
     transition: background-color .25s ease;
   }
   @media (max-aspect-ratio: 1 / 1) {
     #caixa {
-      aspect-ratio: 3 / 5;
-      width: min(100vw, calc(100vh * 3 / 5));
+      aspect-ratio: 3 / 4;
+      width: min(100vw, calc(100vh * 3 / 4));
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr) auto;
     }
@@ -102,7 +100,6 @@
     opacity: 0;
     transition: opacity .6s ease;
     outline: none;
-    border-radius: calc(var(--radius) - 6px);
   }
   #view.pronto { opacity: 1; }
   #view.arrastando { cursor: grabbing; }
@@ -170,7 +167,6 @@
     overscroll-behavior: contain;
     background: var(--surface);
     border: 1px solid var(--pink-100);
-    border-radius: calc(var(--radius) - 4px);
     padding: 16px;
     display: grid;
     gap: 16px;
