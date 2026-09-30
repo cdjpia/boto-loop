@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>boto-loop</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./node_modules/three/build/three.module.js",
+    "three/addons/": "./node_modules/three/examples/jsm/",
+    "lil-gui": "./node_modules/lil-gui/dist/lil-gui.esm.js"
+  }
+}
+</script>
+<style>
+  :root { --chrome: #16161a; --ink: #e8e6ea; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--chrome);
+    color: var(--ink);
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  /* O palco carrega o xadrez de transparencia. O canvas em si e sempre alpha:0 -
+     nada daqui entra no PNG exportado. */
+  #stage {
+    position: relative;
+    width: min(88vh, 88vw);
+    aspect-ratio: 1 / 1;
+    --sq: #2a2a30;
+    background-color: #202027;
+    background-image:
+      linear-gradient(45deg, var(--sq) 25%, transparent 25%, transparent 75%, var(--sq) 75%),
+      linear-gradient(45deg, var(--sq) 25%, transparent 25%, transparent 75%, var(--sq) 75%);
+    background-size: 32px 32px;
+    background-position: 0 0, 16px 16px;
+    box-shadow: 0 0 0 1px #000, 0 24px 80px rgba(0,0,0,.6);
+  }
+  #stage.solido { background-image: none; }
+  #view { width: 100%; height: 100%; display: block; }
+
+  /* moldura de enquadramento, so na tela */
+  #stage::after {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    border: 1px solid rgba(255,255,255,.10);
+    opacity: var(--guias, 0);
+  }
+
+  #hud {
+    position: fixed; left: 12px; bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,.6);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 4px;
+    white-space: pre;
+    pointer-events: none;
+    max-width: 46ch;
+  }
+  #hud b { color: #ff8a1e; font-weight: 600; }
+  .lil-gui { --width: 306px; font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="view"></canvas></div>
+  <div id="hud">carregando boto_low.glb…</div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

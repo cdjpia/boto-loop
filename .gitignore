@@ -1,0 +1,8 @@
+node_modules/
+out/
+dist/
+ref/
+.claude/
+.ai-hub.log
+.ai-hub.pid
+.DS_Store

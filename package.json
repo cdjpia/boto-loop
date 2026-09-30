@@ -1,0 +1,20 @@
+{
+  "name": "boto-loop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Loop de rotacao do boto-aparelhagem: cena three.js quadrada, fundo transparente, export de PNG",
+  "scripts": {
+    "decimate": "./scripts/decimate.sh",
+    "info": "node scripts/glbinfo.mjs",
+    "start": "node server.mjs",
+    "build": "./build.sh"
+  },
+  "dependencies": {
+    "lil-gui": "^0.20.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.4.2"
+  }
+}
